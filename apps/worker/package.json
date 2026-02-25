@@ -1,0 +1,29 @@
+{
+  "name": "@smart-doc/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/main.js",
+    "lint": "echo 'lint not configured yet'",
+    "test": "echo 'tests to be added'",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "format": "echo 'format handled by workspace tooling'"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.4.1",
+    "@smart-doc/shared": "workspace:*",
+    "bullmq": "^5.40.0",
+    "ioredis": "^5.4.2",
+    "openai": "^4.83.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "prisma": "^6.4.1",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
+  }
+}
