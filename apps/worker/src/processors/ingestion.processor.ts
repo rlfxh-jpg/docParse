@@ -2,6 +2,7 @@ import { Job } from "bullmq";
 import { PIPELINE_EVENTS } from "@smart-doc/shared";
 import { prisma } from "../prisma.js";
 import { embedMany } from "../services/ai.service.js";
+import { readObjectAsBase64 } from "../services/object-storage.service.js";
 import { parseFile, parseText } from "../services/parser.service.js";
 import { chunkSections } from "../utils/chunker.js";
 import { QueuePublishers } from "../workers.js";
@@ -73,7 +74,7 @@ export function createIngestionProcessor(publishers: QueuePublishers) {
  * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
  */
 async function handleDocumentUploaded(job: Job<DocumentUploadedEvent>, publishers: QueuePublishers): Promise<void> {
-  const { workspaceId, documentId, versionId, ingestionJobId, fileName, mimeType, contentBase64 } = job.data;
+  const { workspaceId, documentId, versionId, ingestionJobId, objectKey, fileName, mimeType, contentBase64 } = job.data;
 
   const ingestionJob = ingestionJobId
     ? await prisma.ingestionJob.findUnique({ where: { id: ingestionJobId } })
@@ -91,9 +92,10 @@ async function handleDocumentUploaded(job: Job<DocumentUploadedEvent>, publisher
   // 2) 兼容旧消息：若队列事件自带 fileName/contentBase64 则继续可用
   // 这样可以做到“平滑升级”，不需要清空历史队列。
   const payload = parseIngestionPayload(ingestionJob.payload);
-  const resolvedFileName = fileName ?? payload.fileName;
-  const resolvedMimeType = mimeType ?? payload.mimeType;
-  const resolvedContentBase64 = contentBase64 ?? payload.contentBase64;
+  const payloadFileName = fileName ?? payload.fileName;
+  const payloadMimeType = mimeType ?? payload.mimeType;
+  const payloadContentBase64 = contentBase64 ?? payload.contentBase64;
+  const payloadObjectKey = payload.objectKey ?? (objectKey || undefined);
 
   await prisma.ingestionJob.update({
     where: { id: ingestionJob.id },
@@ -107,16 +109,28 @@ async function handleDocumentUploaded(job: Job<DocumentUploadedEvent>, publisher
   }
 
   let sections: DocumentParsedEvent["sections"] = [];
+  const resolvedMimeType = payloadMimeType ?? version.mimeType ?? undefined;
+  const resolvedObjectKey = payloadObjectKey ?? version.objectKey ?? undefined;
+  const resolvedFileName = payloadFileName ?? deriveFileName(version.sourceType, resolvedObjectKey, resolvedMimeType);
+
   // 解析优先级：
   // - 若版本里已有 rawText，直接按文本解析（成本更低）
-  // - 否则按文件内容解析（PDF/DOCX/MD）
+  // - 否则优先读取队列/库中的 base64（兼容旧链路）
+  // - 再兜底从对象存储下载文件并解析（新链路）
   // - 两者都没有则标记任务失败并抛错
   if (version.rawText && version.rawText.trim().length > 0) {
     sections = await parseText(version.sourceType, version.rawText);
-  } else if (resolvedFileName && resolvedContentBase64 && resolvedMimeType) {
+  } else if (resolvedFileName && payloadContentBase64 && resolvedMimeType) {
     sections = await parseFile({
       fileName: resolvedFileName,
-      contentBase64: resolvedContentBase64,
+      contentBase64: payloadContentBase64,
+      mimeType: resolvedMimeType,
+    });
+  } else if (resolvedFileName && resolvedObjectKey && resolvedMimeType) {
+    const downloadedBase64 = await readObjectAsBase64(resolvedObjectKey);
+    sections = await parseFile({
+      fileName: resolvedFileName,
+      contentBase64: downloadedBase64,
       mimeType: resolvedMimeType,
     });
   } else {
@@ -237,6 +251,7 @@ async function markIngestionFailed(jobId: string, reason: string): Promise<void>
  * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
  */
 function parseIngestionPayload(payload: unknown): {
+  objectKey?: string;
   fileName?: string;
   mimeType?: string;
   contentBase64?: string;
@@ -247,8 +262,61 @@ function parseIngestionPayload(payload: unknown): {
 
   const record = payload as Record<string, unknown>;
   return {
+    objectKey: typeof record.objectKey === "string" ? record.objectKey : undefined,
     fileName: typeof record.fileName === "string" ? record.fileName : undefined,
     mimeType: typeof record.mimeType === "string" ? record.mimeType : undefined,
     contentBase64: typeof record.contentBase64 === "string" ? record.contentBase64 : undefined,
   };
+}
+
+/**
+ * 函数说明：deriveFileName，为解析服务推导可用的文件名。
+ * 执行流程：优先使用 objectKey 末段；若缺少扩展名则按 sourceType/mimeType 推断后缀。
+ * 参数约定：sourceType 为文档来源类型，objectKey 与 mimeType 允许为空。
+ * 返回结果：返回可用于 parser `/parse/file` 的文件名字符串。
+ */
+function deriveFileName(sourceType: string, objectKey?: string, mimeType?: string): string {
+  const keyTail = objectKey?.split("/").pop()?.trim();
+  if (keyTail && keyTail.length > 0) {
+    if (keyTail.includes(".")) {
+      return keyTail;
+    }
+    const extFromMime = mapMimeTypeToExt(mimeType);
+    return `${keyTail}${extFromMime}`;
+  }
+
+  switch (sourceType) {
+    case "upload_pdf":
+      return "document.pdf";
+    case "upload_docx":
+      return "document.docx";
+    case "upload_md":
+      return "document.md";
+    default:
+      return `document${mapMimeTypeToExt(mimeType)}`;
+  }
+}
+
+/**
+ * 函数说明：mapMimeTypeToExt，将常见 MIME 类型映射为文件扩展名。
+ * 执行流程：优先匹配 parser 已支持的格式，未命中时退化为 `.bin`。
+ * 参数约定：mimeType 可为空；传入值建议为标准 HTTP Content-Type。
+ * 返回结果：返回带点号的扩展名字符串。
+ */
+function mapMimeTypeToExt(mimeType?: string): string {
+  if (!mimeType) {
+    return ".bin";
+  }
+
+  const normalized = mimeType.toLowerCase();
+  if (normalized.includes("pdf")) {
+    return ".pdf";
+  }
+  if (normalized.includes("wordprocessingml") || normalized.includes("msword")) {
+    return ".docx";
+  }
+  if (normalized.includes("markdown") || normalized.includes("text/plain")) {
+    return ".md";
+  }
+  return ".bin";
 }

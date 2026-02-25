@@ -13,6 +13,7 @@
     "format": "echo 'format handled by workspace tooling'"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.997.0",
     "@prisma/client": "^6.4.1",
     "@smart-doc/shared": "workspace:*",
     "bullmq": "^5.40.0",

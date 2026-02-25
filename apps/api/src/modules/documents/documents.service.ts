@@ -4,7 +4,9 @@ import { PIPELINE_EVENTS } from "@smart-doc/shared";
 import { PrismaService } from "../../common/prisma/prisma.service.js";
 import { QueueService } from "../../common/queue/queue.service.js";
 import { PermissionService } from "../../common/permissions/permission.service.js";
+import { StorageService } from "../../common/storage/storage.service.js";
 import { CreateDocumentDto } from "./dto/create-document.dto.js";
+import { CreateUploadUrlDto } from "./dto/create-upload-url.dto.js";
 import { ListDocumentsDto } from "./dto/list-documents.dto.js";
 import { ShareDocumentDto } from "./dto/share-document.dto.js";
 import { UpdateDocumentDto } from "./dto/update-document.dto.js";
@@ -22,6 +24,7 @@ export class DocumentsService {
     private readonly prisma: PrismaService,
     private readonly queueService: QueueService,
     private readonly permissions: PermissionService,
+    private readonly storageService: StorageService,
   ) {}
 
   /**
@@ -115,6 +118,38 @@ export class DocumentsService {
         visibility: dto.visibility ?? "private",
       },
     });
+  }
+
+  /**
+   * 函数说明：createUploadUrl，生成文档版本文件上传对象存储所需的预签名 URL。
+   * 执行流程：校验文档写权限与空间归属后，按文档上下文组装 objectKey 并调用存储服务签名。
+   * 参数约定：documentId 为目标文档；dto 提供 workspaceId/sourceType/fileName/mimeType。
+   * 返回结果：返回 objectKey、uploadUrl、过期时间与建议请求头，供前端直传。
+   */
+  async createUploadUrl(userId: string, documentId: string, dto: CreateUploadUrlDto) {
+    await this.permissions.assertDocumentWriteAccess(userId, documentId);
+
+    const document = await this.prisma.document.findUnique({
+      where: { id: documentId },
+      select: { id: true, workspaceId: true },
+    });
+    if (!document) {
+      throw new NotFoundException("Document not found");
+    }
+    if (document.workspaceId !== dto.workspaceId) {
+      throw new ForbiddenException("Workspace mismatch");
+    }
+
+    const objectKey = this.buildObjectKey(dto.workspaceId, documentId, dto.fileName);
+    const { url, expiresInSeconds } = await this.storageService.createUploadUrl(objectKey, dto.mimeType);
+
+    return {
+      objectKey,
+      uploadUrl: url,
+      expiresInSeconds,
+      method: "PUT",
+      headers: dto.mimeType ? { "Content-Type": dto.mimeType } : {},
+    };
   }
 
   /**
@@ -255,6 +290,35 @@ export class DocumentsService {
   }
 
   /**
+   * 函数说明：getVersionDownloadUrl，生成文档指定版本文件的下载预签名 URL。
+   * 执行流程：先校验文档读权限，再确认版本记录存在 objectKey，最后调用存储服务签名。
+   * 参数约定：documentId 与 versionId 必须匹配同一版本；调用用户需具备读取权限。
+   * 返回结果：返回 objectKey、downloadUrl 与过期时间，供前端执行下载。
+   */
+  async getVersionDownloadUrl(userId: string, documentId: string, versionId: string) {
+    await this.permissions.assertDocumentReadAccess(userId, documentId);
+
+    const version = await this.prisma.documentVersion.findFirst({
+      where: { id: versionId, documentId },
+      select: { id: true, objectKey: true },
+    });
+    if (!version) {
+      throw new NotFoundException("Document version not found");
+    }
+    if (!version.objectKey) {
+      throw new NotFoundException("Document version has no object key");
+    }
+
+    const { url, expiresInSeconds } = await this.storageService.createDownloadUrl(version.objectKey);
+
+    return {
+      objectKey: version.objectKey,
+      downloadUrl: url,
+      expiresInSeconds,
+    };
+  }
+
+  /**
    * 函数说明：share，负责当前模块的业务处理逻辑。
    * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
    * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
@@ -317,5 +381,27 @@ export class DocumentsService {
     return this.prisma.documentAiMeta.findUnique({
       where: { documentId },
     });
+  }
+
+  /**
+   * 函数说明：buildObjectKey，按工作空间与文档维度生成稳定的对象存储键。
+   * 执行流程：先清洗文件名，再拼接目录层级与时间戳，避免重名覆盖并提升可追溯性。
+   * 参数约定：workspaceId/documentId 为必填上下文；fileName 为原始文件名。
+   * 返回结果：返回适用于 S3/MinIO 的 objectKey 字符串。
+   */
+  private buildObjectKey(workspaceId: string, documentId: string, fileName: string): string {
+    const safeFileName = this.sanitizeFileName(fileName);
+    return `${workspaceId}/${documentId}/${Date.now()}-${safeFileName}`;
+  }
+
+  /**
+   * 函数说明：sanitizeFileName，标准化文件名以降低对象键非法字符风险。
+   * 执行流程：保留字母数字和常见安全符号，其余字符统一替换为下划线。
+   * 参数约定：fileName 为用户上传时的原始文件名，允许包含空格与中文字符。
+   * 返回结果：返回可安全用于对象键的文件名；若清洗后为空则返回默认名。
+   */
+  private sanitizeFileName(fileName: string): string {
+    const normalized = fileName.trim().replace(/\s+/g, "_").replace(/[^a-zA-Z0-9._-]/g, "_");
+    return normalized || "document.bin";
   }
 }
