@@ -12,12 +12,24 @@ import { UploadDocumentVersionDto } from "./dto/upload-version.dto.js";
 
 @Injectable()
 export class DocumentsService {
+  /**
+   * 构造函数，用于注入并保存当前类运行所需依赖。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   constructor(
     private readonly prisma: PrismaService,
     private readonly queueService: QueueService,
     private readonly permissions: PermissionService,
   ) {}
 
+  /**
+   * 函数说明：list，负责当前模块的业务处理逻辑。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   async list(userId: string, dto: ListDocumentsDto) {
     const role = await this.permissions.assertWorkspaceMember(userId, dto.workspaceId);
     const page = dto.page ?? 1;
@@ -39,6 +51,12 @@ export class DocumentsService {
     };
 
     if (role !== "owner") {
+      // 权限裁剪策略：
+      // - owner: 可查看空间内全部文档
+      // - 非 owner: 仅可查看
+      //   1) visibility=workspace 的文档
+      //   2) 自己创建的文档
+      //   3) 通过 document_shares 显式共享给自己的文档
       where.AND = [
         {
           OR: [
@@ -78,6 +96,12 @@ export class DocumentsService {
     };
   }
 
+  /**
+   * 函数说明：create，负责当前模块的业务处理逻辑。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   async create(userId: string, dto: CreateDocumentDto) {
     await this.permissions.assertWorkspaceRole(userId, dto.workspaceId, ["owner", "editor"]);
 
@@ -93,6 +117,12 @@ export class DocumentsService {
     });
   }
 
+  /**
+   * 函数说明：uploadVersion，负责当前模块的业务处理逻辑。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   async uploadVersion(userId: string, documentId: string, dto: UploadDocumentVersionDto) {
     await this.permissions.assertDocumentWriteAccess(userId, documentId);
 
@@ -105,6 +135,8 @@ export class DocumentsService {
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
+      // 上传版本的事务化流程（保证版本、当前指针、任务、审计一致）：
+      // 第 1 步：落库一条不可变版本记录（DocumentVersion）
       const version = await tx.documentVersion.create({
         data: {
           documentId,
@@ -118,26 +150,41 @@ export class DocumentsService {
         },
       });
 
+      // 第 2 步：把文档 currentVersion 指向最新版本，确保检索/问答优先读取新内容
       await tx.document.update({
         where: { id: documentId },
         data: { currentVersionId: version.id, updatedAt: new Date() },
       });
+
+      // 第 3 步：把解析任务的上下文放入 ingestionJob.payload（含可选 base64）
+      // 只在队列里传轻量指针，避免大 payload 直接进入 Redis 导致传输/内存压力。
+      const ingestionPayload: Record<string, Prisma.InputJsonValue> = {
+        versionId: version.id,
+        sourceType: dto.sourceType,
+      };
+      if (dto.objectKey) {
+        ingestionPayload.objectKey = dto.objectKey;
+      }
+      if (dto.fileName) {
+        ingestionPayload.fileName = dto.fileName;
+      }
+      if (dto.mimeType) {
+        ingestionPayload.mimeType = dto.mimeType;
+      }
+      if (dto.contentBase64) {
+        ingestionPayload.contentBase64 = dto.contentBase64;
+      }
 
       const ingestionJob = await tx.ingestionJob.create({
         data: {
           workspaceId: dto.workspaceId,
           documentId,
           status: "PENDING",
-          payload: {
-            versionId: version.id,
-            sourceType: dto.sourceType,
-            objectKey: dto.objectKey,
-            fileName: dto.fileName,
-            mimeType: dto.mimeType,
-          },
+          payload: ingestionPayload as Prisma.InputJsonObject,
         },
       });
 
+      // 第 4 步：写审计日志，便于追踪“谁在何时上传了哪个版本”
       await tx.auditLog.create({
         data: {
           workspaceId: dto.workspaceId,
@@ -155,14 +202,15 @@ export class DocumentsService {
       return { version, ingestionJob };
     });
 
+    // 队列事件仅发送标识信息，worker 再根据 ingestionJobId 回查 DB 获取完整 payload。
     await this.queueService.publishIngestion(PIPELINE_EVENTS.DOCUMENT_UPLOADED, {
       workspaceId: dto.workspaceId,
       documentId,
       versionId: result.version.id,
+      ingestionJobId: result.ingestionJob.id,
       objectKey: dto.objectKey ?? "",
       fileName: dto.fileName,
       mimeType: dto.mimeType,
-      contentBase64: dto.contentBase64,
     });
 
     return {
@@ -171,6 +219,12 @@ export class DocumentsService {
     };
   }
 
+  /**
+   * 函数说明：update，负责当前模块的业务处理逻辑。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   async update(userId: string, documentId: string, dto: UpdateDocumentDto) {
     await this.permissions.assertDocumentWriteAccess(userId, documentId);
 
@@ -185,6 +239,12 @@ export class DocumentsService {
     });
   }
 
+  /**
+   * 函数说明：listVersions，负责当前模块的业务处理逻辑。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   async listVersions(userId: string, documentId: string) {
     await this.permissions.assertDocumentReadAccess(userId, documentId);
 
@@ -194,6 +254,12 @@ export class DocumentsService {
     });
   }
 
+  /**
+   * 函数说明：share，负责当前模块的业务处理逻辑。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   async share(userId: string, documentId: string, dto: ShareDocumentDto) {
     await this.permissions.assertDocumentWriteAccess(userId, documentId);
 
@@ -239,6 +305,12 @@ export class DocumentsService {
     return { ok: true };
   }
 
+  /**
+   * 函数说明：getAiMeta，负责当前模块的业务处理逻辑。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   async getAiMeta(userId: string, documentId: string) {
     await this.permissions.assertDocumentReadAccess(userId, documentId);
 

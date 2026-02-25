@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { randomBytes } from "node:crypto";
-import * as bcrypt from "bcryptjs";
+import bcrypt from "bcryptjs";
 import { WorkspaceRole } from "@prisma/client";
 import { PrismaService } from "../../common/prisma/prisma.service.js";
 import { PermissionService } from "../../common/permissions/permission.service.js";
@@ -10,11 +10,23 @@ import { UpdateMemberRoleDto } from "./dto/update-member-role.dto.js";
 
 @Injectable()
 export class WorkspacesService {
+  /**
+   * 构造函数，用于注入并保存当前类运行所需依赖。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   constructor(
     private readonly prisma: PrismaService,
     private readonly permissions: PermissionService,
   ) {}
 
+  /**
+   * 函数说明：list，负责当前模块的业务处理逻辑。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   async list(userId: string) {
     const memberships = await this.prisma.workspaceMember.findMany({
       where: { userId },
@@ -32,6 +44,12 @@ export class WorkspacesService {
     }));
   }
 
+  /**
+   * 函数说明：create，负责当前模块的业务处理逻辑。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   async create(userId: string, dto: CreateWorkspaceDto) {
     return this.prisma.$transaction(async (tx) => {
       const workspace = await tx.workspace.create({
@@ -53,6 +71,12 @@ export class WorkspacesService {
     });
   }
 
+  /**
+   * 函数说明：invite，负责当前模块的业务处理逻辑。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   async invite(workspaceId: string, operatorId: string, dto: InviteMemberDto) {
     await this.permissions.assertWorkspaceRole(operatorId, workspaceId, ["owner"]);
 
@@ -107,6 +131,12 @@ export class WorkspacesService {
     };
   }
 
+  /**
+   * 函数说明：updateMemberRole，负责当前模块的业务处理逻辑。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   async updateMemberRole(workspaceId: string, memberUserId: string, operatorId: string, dto: UpdateMemberRoleDto) {
     await this.permissions.assertWorkspaceRole(operatorId, workspaceId, ["owner"]);
 

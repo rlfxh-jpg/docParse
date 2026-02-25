@@ -53,6 +53,12 @@ export default function HomePage() {
     [documents, selectedDocumentId],
   );
 
+  /**
+   * 函数说明：handleAuth，负责当前模块的业务处理逻辑。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   async function handleAuth(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
@@ -72,6 +78,12 @@ export default function HomePage() {
     }
   }
 
+  /**
+   * 函数说明：loadWorkspaces，负责当前模块的业务处理逻辑。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   async function loadWorkspaces() {
     try {
       setStatus("Loading workspaces...");
@@ -86,6 +98,12 @@ export default function HomePage() {
     }
   }
 
+  /**
+   * 函数说明：createWorkspace，负责当前模块的业务处理逻辑。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   async function createWorkspace(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!workspaceName.trim()) {
@@ -107,6 +125,12 @@ export default function HomePage() {
     }
   }
 
+  /**
+   * 函数说明：loadDocuments，负责当前模块的业务处理逻辑。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   async function loadDocuments() {
     if (!selectedWorkspaceId) {
       return;
@@ -128,6 +152,12 @@ export default function HomePage() {
     }
   }
 
+  /**
+   * 函数说明：createDocument，负责当前模块的业务处理逻辑。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   async function createDocument(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!selectedWorkspaceId) {
@@ -156,6 +186,12 @@ export default function HomePage() {
     }
   }
 
+  /**
+   * 函数说明：uploadVersion，负责当前模块的业务处理逻辑。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   async function uploadVersion() {
     if (!selectedWorkspaceId || !selectedDocumentId) {
       setStatus("Select workspace and document first");
@@ -200,6 +236,12 @@ export default function HomePage() {
     }
   }
 
+  /**
+   * 函数说明：askQuestion，负责当前模块的业务处理逻辑。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   async function askQuestion() {
     if (!selectedWorkspaceId) {
       setStatus("Select workspace first");
@@ -369,10 +411,22 @@ export default function HomePage() {
   );
 }
 
+/**
+ * 函数说明：stripHtml，负责当前模块的业务处理逻辑。
+ * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+ * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+ * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+ */
 function stripHtml(html: string): string {
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
+/**
+ * 函数说明：fileToBase64，负责当前模块的业务处理逻辑。
+ * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+ * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+ * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+ */
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -390,6 +444,12 @@ async function fileToBase64(file: File): Promise<string> {
   });
 }
 
+/**
+ * 函数说明：inferSourceType，负责当前模块的业务处理逻辑。
+ * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+ * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+ * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+ */
 function inferSourceType(fileName: string, mimeType: string): "upload_pdf" | "upload_docx" | "upload_md" {
   const lower = fileName.toLowerCase();
   if (mimeType.includes("pdf") || lower.endsWith(".pdf")) {
@@ -401,6 +461,12 @@ function inferSourceType(fileName: string, mimeType: string): "upload_pdf" | "up
   return "upload_md";
 }
 
+/**
+ * 函数说明：mimeBySourceType，负责当前模块的业务处理逻辑。
+ * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+ * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+ * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+ */
 function mimeBySourceType(sourceType: "upload_pdf" | "upload_docx" | "upload_md"): string {
   if (sourceType === "upload_pdf") {
     return "application/pdf";

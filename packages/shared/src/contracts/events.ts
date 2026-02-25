@@ -10,10 +10,10 @@ export interface DocumentUploadedEvent {
   workspaceId: string;
   documentId: string;
   versionId: string;
+  ingestionJobId?: string;
   objectKey: string;
   fileName?: string;
   mimeType?: string;
-  contentBase64?: string;
 }
 
 export interface DocumentParsedEvent {

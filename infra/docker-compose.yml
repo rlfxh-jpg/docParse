@@ -31,6 +31,12 @@ services:
     volumes:
       - minio_data:/data
 
+  parser:
+    image: test
+    container_name: smart-doc-parser
+    ports:
+      - "8000:8000"
+
 volumes:
   postgres_data:
   minio_data:

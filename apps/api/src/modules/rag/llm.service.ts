@@ -18,6 +18,12 @@ export interface AnswerContext {
 export class LlmService {
   private readonly client: OpenAI | null;
 
+  /**
+   * 构造函数，用于注入并保存当前类运行所需依赖。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   constructor() {
     this.client = env.OPENAI_API_KEY
       ? new OpenAI({
@@ -27,6 +33,12 @@ export class LlmService {
       : null;
   }
 
+  /**
+   * 函数说明：generateAnswer，负责当前模块的业务处理逻辑。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   async generateAnswer(question: string, contexts: AnswerContext[]): Promise<QaResponse> {
     if (contexts.length === 0) {
       return this.refuse("NO_EVIDENCE");
@@ -92,6 +104,12 @@ export class LlmService {
     }
   }
 
+  /**
+   * 函数说明：fallbackAnswer，负责当前模块的业务处理逻辑。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   private fallbackAnswer(question: string, contexts: AnswerContext[]): QaResponse {
     const top = contexts.slice(0, 3);
     const shortText = top
@@ -108,6 +126,12 @@ export class LlmService {
     };
   }
 
+  /**
+   * 函数说明：toCitations，负责当前模块的业务处理逻辑。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   private toCitations(contexts: AnswerContext[]): Citation[] {
     return contexts.map((ctx) => ({
       documentId: ctx.documentId,
@@ -121,6 +145,12 @@ export class LlmService {
     }));
   }
 
+  /**
+   * 函数说明：refuse，负责当前模块的业务处理逻辑。
+   * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+   * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+   * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+   */
   private refuse(reason: "NO_EVIDENCE" | "LOW_CONFIDENCE" | "NO_PERMISSION"): QaResponse {
     return {
       answer: env.REFUSAL_MESSAGE ?? REFUSAL_MESSAGE,

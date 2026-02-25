@@ -8,6 +8,12 @@ const client = env.OPENAI_API_KEY
     })
   : null;
 
+/**
+ * 函数说明：embedMany，负责当前模块的业务处理逻辑。
+ * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+ * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+ * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+ */
 export async function embedMany(texts: string[]): Promise<number[][]> {
   if (texts.length === 0) {
     return [];
@@ -29,6 +35,12 @@ export async function embedMany(texts: string[]): Promise<number[][]> {
   }
 }
 
+/**
+ * 函数说明：summarizeAndTag，负责当前模块的业务处理逻辑。
+ * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+ * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+ * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+ */
 export async function summarizeAndTag(input: string): Promise<{ summary: string; labels: string[]; keywords: string[] }> {
   const text = input.replace(/\s+/g, " ").trim();
 
@@ -91,6 +103,12 @@ export async function summarizeAndTag(input: string): Promise<{ summary: string;
   }
 }
 
+/**
+ * 函数说明：sanitizeStringList，负责当前模块的业务处理逻辑。
+ * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+ * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+ * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+ */
 function sanitizeStringList(items: string[] | undefined, min: number, max: number): string[] {
   const clean = (items ?? []).map((item) => item.trim()).filter(Boolean);
   if (clean.length === 0) {
@@ -105,6 +123,12 @@ function sanitizeStringList(items: string[] | undefined, min: number, max: numbe
   return unique;
 }
 
+/**
+ * 函数说明：extractTopKeywords，负责当前模块的业务处理逻辑。
+ * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+ * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+ * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+ */
 function extractTopKeywords(text: string, limit: number): string[] {
   const tokens = text
     .toLowerCase()
@@ -123,6 +147,12 @@ function extractTopKeywords(text: string, limit: number): string[] {
     .map(([term]) => term);
 }
 
+/**
+ * 函数说明：normalizeLength，负责当前模块的业务处理逻辑。
+ * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+ * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+ * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+ */
 function normalizeLength(input: number[], length: number): number[] {
   if (input.length === length) {
     return input;
@@ -137,6 +167,12 @@ function normalizeLength(input: number[], length: number): number[] {
   return output;
 }
 
+/**
+ * 函数说明：fakeEmbedding，负责当前模块的业务处理逻辑。
+ * 执行流程：基于入参进行校验与处理，必要时调用下游服务或数据层。
+ * 参数约定：参数类型与约束以函数签名、DTO 与类型定义为准。
+ * 返回结果：返回当前处理阶段的结果；异常由上层统一捕获并转换为错误响应。
+ */
 function fakeEmbedding(text: string): number[] {
   const vector = new Array<number>(1024).fill(0);
   const source = text || "empty";

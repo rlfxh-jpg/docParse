@@ -16,6 +16,7 @@
     "@prisma/client": "^6.4.1",
     "@smart-doc/shared": "workspace:*",
     "bullmq": "^5.40.0",
+    "dotenv": "^16.5.0",
     "ioredis": "^5.4.2",
     "openai": "^4.83.0",
     "zod": "^3.24.2"

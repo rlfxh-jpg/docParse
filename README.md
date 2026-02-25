@@ -43,14 +43,14 @@ Monorepo for a smart document platform with:
    - copy `apps/api/.env.example` to `apps/api/.env`
    - copy `apps/worker/.env.example` to `apps/worker/.env`
    - copy `apps/web/.env.example` to `apps/web/.env.local`
-2. Start infrastructure (PostgreSQL + Redis + MinIO):
-   - `docker compose -f infra/docker-compose.yml up -d`
+2. Start infrastructure (PostgreSQL + Redis + MinIO + Parser):
+   - `docker compose -f infra/docker-compose.yml up -d --no-build`
 3. Install dependencies:
    - `pnpm install`
 4. Generate Prisma client and push schema:
    - `pnpm prisma:generate`
    - `pnpm prisma:push`
-5. Start parser service:
+5. (Optional, when you do not run parser in Docker) Start parser service manually:
    - `python -m venv .venv`
    - `.\\.venv\\Scripts\\activate`
    - `pip install -r services/parser/requirements.txt`
@@ -63,6 +63,14 @@ Monorepo for a smart document platform with:
 ## API Prefix
 
 - all routes are under `/api/v1`
+
+## Troubleshooting
+
+- If you get `ERROR: type "vector" does not exist` during `prisma db push`:
+  - ensure your PostgreSQL has `pgvector` installed (recommended image: `pgvector/pgvector:pg16`)
+  - run `pnpm prisma:push` again (the script now runs `CREATE EXTENSION IF NOT EXISTS vector` automatically before push)
+  - if your DB user has no extension privilege, run this once with a privileged user:
+    - `CREATE EXTENSION IF NOT EXISTS vector;`
 
 ## Validation Status
 
