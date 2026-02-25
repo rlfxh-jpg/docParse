@@ -271,16 +271,41 @@ export default function HomePage() {
   }
 
   return (
-    <main className="page-shell">
-      <section className="hero-card">
-        <h1>Smart Document Platform</h1>
-        <p>Document Management + AI Understanding + QA + Automation</p>
-        <span className="status">{status}</span>
-      </section>
+    <main className="app-shell">
+      <header className="hero reveal-1">
+        <div className="hero-heading">
+          <span className="eyebrow">SMART DOC CONTROL ROOM</span>
+          <h1>智能文档工作台</h1>
+          <p>管理文档、驱动入库、执行知识问答，一屏完成 MVP 全链路验证。</p>
+        </div>
+        <div className="hero-metrics">
+          <article className="metric-card">
+            <span>Auth</span>
+            <strong>{token ? "Connected" : "Guest"}</strong>
+          </article>
+          <article className="metric-card">
+            <span>Workspace</span>
+            <strong>{workspaces.length}</strong>
+          </article>
+          <article className="metric-card">
+            <span>Documents</span>
+            <strong>{documents.length}</strong>
+          </article>
+          <article className="metric-card">
+            <span>Selected</span>
+            <strong>{selectedDoc ? "1" : "0"}</strong>
+          </article>
+        </div>
+        <div className="status-ribbon">
+          <span className="status-dot" />
+          {status}
+        </div>
+      </header>
 
-      <section className="grid-layout">
-        <article className="panel">
-          <h2>1. Auth</h2>
+      <section className="control-grid reveal-2">
+        <article className="panel auth-panel">
+          <h2>身份认证</h2>
+          <p className="panel-subtitle">先获取访问令牌，再执行后续所有工作台动作。</p>
           <form onSubmit={handleAuth} className="stack">
             <div className="switch-row">
               <button
@@ -288,124 +313,148 @@ export default function HomePage() {
                 className={authMode === "register" ? "active" : ""}
                 onClick={() => setAuthMode("register")}
               >
-                Register
+                注册
               </button>
               <button
                 type="button"
                 className={authMode === "login" ? "active" : ""}
                 onClick={() => setAuthMode("login")}
               >
-                Login
+                登录
               </button>
             </div>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
-            <input
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password"
-              type="password"
-            />
+            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="邮箱" />
+            <input value={password} onChange={(e) => setPassword(e.target.value)} placeholder="密码" type="password" />
             {authMode === "register" ? (
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" />
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="昵称" />
             ) : null}
-            <button type="submit">Submit</button>
+            <button type="submit">提交</button>
           </form>
         </article>
 
-        <article className="panel">
-          <h2>2. Workspaces</h2>
+        <article className="panel workspace-panel">
+          <h2>空间管理</h2>
+          <p className="panel-subtitle">加载空间、创建空间并切换当前工作空间。</p>
           <div className="stack">
             <button onClick={loadWorkspaces} disabled={!token}>
-              Load Workspaces
+              加载空间列表
             </button>
-            <form onSubmit={createWorkspace} className="stack">
+            <form onSubmit={createWorkspace} className="stack compact-form">
               <input
                 value={workspaceName}
                 onChange={(e) => setWorkspaceName(e.target.value)}
-                placeholder="Workspace name"
+                placeholder="新空间名称"
               />
               <button type="submit" disabled={!token}>
-                Create Workspace
+                创建空间
               </button>
             </form>
-            <select
-              value={selectedWorkspaceId}
-              onChange={(e) => setSelectedWorkspaceId(e.target.value)}
-              disabled={workspaces.length === 0}
-            >
-              <option value="">Select workspace</option>
-              {workspaces.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name} ({item.role})
-                </option>
-              ))}
-            </select>
-            <div className="hint">Current: {selectedWorkspace?.name ?? "-"}</div>
+            <div className="chip-wrap">
+              {workspaces.length === 0 ? (
+                <span className="hint">暂无空间，先点击“加载空间列表”或创建一个新空间。</span>
+              ) : (
+                workspaces.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`chip ${selectedWorkspaceId === item.id ? "active" : ""}`}
+                    onClick={() => setSelectedWorkspaceId(item.id)}
+                  >
+                    {item.name}
+                    <em>{item.role}</em>
+                  </button>
+                ))
+              )}
+            </div>
+            <div className="hint">当前空间: {selectedWorkspace?.name ?? "未选择"}</div>
           </div>
         </article>
 
-        <article className="panel">
-          <h2>3. Documents</h2>
+        <article className="panel document-panel">
+          <h2>文档与版本</h2>
+          <p className="panel-subtitle">创建文档、选中文档并提交新版本进入入库队列。</p>
           <div className="stack">
             <button onClick={loadDocuments} disabled={!token || !selectedWorkspaceId}>
-              Load Documents
+              加载文档列表
             </button>
-            <form onSubmit={createDocument} className="stack">
-              <input value={docTitle} onChange={(e) => setDocTitle(e.target.value)} placeholder="Document title" />
+            <form onSubmit={createDocument} className="stack compact-form">
+              <input value={docTitle} onChange={(e) => setDocTitle(e.target.value)} placeholder="文档标题" />
               <button type="submit" disabled={!token || !selectedWorkspaceId}>
-                Create Document
+                创建文档
               </button>
             </form>
-            <select
-              value={selectedDocumentId}
-              onChange={(e) => setSelectedDocumentId(e.target.value)}
-              disabled={documents.length === 0}
-            >
-              <option value="">Select document</option>
-              {documents.map((doc) => (
-                <option key={doc.id} value={doc.id}>
-                  {doc.title}
-                </option>
-              ))}
-            </select>
+            <div className="doc-list">
+              {documents.length === 0 ? (
+                <span className="hint">暂无文档，可先创建文档再编辑。</span>
+              ) : (
+                documents.map((doc) => (
+                  <button
+                    key={doc.id}
+                    type="button"
+                    className={`doc-card ${selectedDocumentId === doc.id ? "active" : ""}`}
+                    onClick={() => setSelectedDocumentId(doc.id)}
+                  >
+                    <strong>{doc.title}</strong>
+                    <span>{doc.visibility}</span>
+                  </button>
+                ))
+              )}
+            </div>
             <input
               type="file"
               accept=".md,.pdf,.docx"
               onChange={(event) => setUploadFile(event.target.files?.[0] ?? null)}
             />
             <div className="hint">
-              {uploadFile ? `File mode: ${uploadFile.name}` : "No file selected. Editor text will be uploaded as markdown."}
+              {uploadFile
+                ? `文件模式: ${uploadFile.name}`
+                : "未选择文件时，将把编辑器内容按 Markdown 文本上传。"}
             </div>
             <button onClick={uploadVersion} disabled={!selectedDocumentId || !token}>
-              Upload New Version
+              提交新版本入库
             </button>
           </div>
         </article>
       </section>
 
-      <section className="editor-card">
-        <h2>Online Editor</h2>
+      <section className="workspace-stage reveal-3">
+        <div className="stage-head">
+          <h2>在线编辑区</h2>
+          <span>{selectedDoc?.title ?? "未选择文档"}</span>
+        </div>
         <DocumentEditor value={docContent} onChange={setDocContent} />
-        <div className="hint">Selected document: {selectedDoc?.title ?? "None"}</div>
       </section>
 
-      <section className="qa-card">
-        <h2>Q&A with Citations</h2>
+      <section className="qa-stage reveal-4">
+        <div className="stage-head">
+          <h2>智能问答与引用</h2>
+          <span>仅在已选空间内检索</span>
+        </div>
         <div className="qa-row">
-          <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Ask a question" />
+          <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="输入问题并发起问答" />
           <button onClick={askQuestion} disabled={!token || !selectedWorkspaceId}>
-            Ask
+            立即提问
           </button>
         </div>
-        <pre>{answer || "Answer will appear here."}</pre>
-        <ul>
-          {citations.map((citation, index) => (
-            <li key={`${citation.title}-${index}`}>
-              <strong>{citation.title}</strong>
-              <p>{citation.snippet}</p>
-            </li>
-          ))}
-        </ul>
+
+        <div className="answer-wrap">
+          <pre>{answer || "答案将展示在这里。"}</pre>
+          <aside className="citation-panel">
+            <h3>引用来源</h3>
+            {citations.length === 0 ? (
+              <div className="hint">暂无引用</div>
+            ) : (
+              <ul>
+                {citations.map((citation, index) => (
+                  <li key={`${citation.title}-${index}`}>
+                    <strong>{citation.title}</strong>
+                    <p>{citation.snippet}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </aside>
+        </div>
       </section>
     </main>
   );

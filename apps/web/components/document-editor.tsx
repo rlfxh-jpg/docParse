@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -45,5 +45,46 @@ export function DocumentEditor({ value, onChange }: DocumentEditorProps) {
     }
   }, [editor, value]);
 
-  return <EditorContent editor={editor} />;
+  return (
+    <div className="editor-shell">
+      <div className="editor-toolbar">
+        <button
+          type="button"
+          className={`tool-button ${editor?.isActive("heading", { level: 2 }) ? "active" : ""}`}
+          onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
+        >
+          H2
+        </button>
+        <button
+          type="button"
+          className={`tool-button ${editor?.isActive("bold") ? "active" : ""}`}
+          onClick={() => editor?.chain().focus().toggleBold().run()}
+        >
+          粗体
+        </button>
+        <button
+          type="button"
+          className={`tool-button ${editor?.isActive("italic") ? "active" : ""}`}
+          onClick={() => editor?.chain().focus().toggleItalic().run()}
+        >
+          斜体
+        </button>
+        <button
+          type="button"
+          className={`tool-button ${editor?.isActive("bulletList") ? "active" : ""}`}
+          onClick={() => editor?.chain().focus().toggleBulletList().run()}
+        >
+          列表
+        </button>
+        <button
+          type="button"
+          className={`tool-button ${editor?.isActive("blockquote") ? "active" : ""}`}
+          onClick={() => editor?.chain().focus().toggleBlockquote().run()}
+        >
+          引用
+        </button>
+      </div>
+      <EditorContent editor={editor} />
+    </div>
+  );
 }
